@@ -1,0 +1,18 @@
+common:
+    test_filelist: /home/lianqing/data/visda/validation/image_list.txt
+    bn_group: 2
+    bn_group_comm: True
+    arch: f_tsne_resnet152
+    num_classes: 13
+    arch_aoda: aoda_resnet_fn 
+    bn_sync_stats: True
+    padding: [16,16]
+    tgt_scale_u_range: [0.75, 1.333]
+    tgt_hflip: True
+    tgt_xlat_range: 0.0 
+    resume_opt: False
+    val_root: /home/lianqing/data/visda/validation/
+    val_source: /home/lianqing/data/visda/list/validation_list.txt
+    train_root: /home/lianqing/data/visda/train/
+    evaluate: True
+    save_dir: ./result/

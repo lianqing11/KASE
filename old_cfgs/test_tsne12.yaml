@@ -1,0 +1,19 @@
+common:
+    test_filelist: /home/yuming/data/visda/validation_list.txt
+    bn_group: 2
+    bn_group_comm: True
+    arch: os2_resnet152
+    num_classes: 13
+    arch_aoda: aoda_resnet_fn 
+    bn_sync_stats: True
+    padding: [16,16]
+    tgt_scale_u_range: [0.75, 1.333]
+    tgt_hflip: True
+    tgt_xlat_range: 0.0 
+    resume_opt: False
+    val_root: /home/yuming/data/visda/validation/
+    val_source: /home/yuming/data/visda/list/validation_tsne.txt
+    train_root: /home/yuming/data/visda/train/
+    train_source: /home/yuming/data/visda/list/train_tsne.txt
+    evaluate: True
+    save_dir: ./result/
