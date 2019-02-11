@@ -1,8 +1,8 @@
 common:
-    exp_name: adabn_12_exp001
+    exp_name: se_12_exp005
     arch: os2_resnet152
     workers: 1
-    batch_size: 48 
+    batch_size: 24 
     bn_group: 2
     bn_sync_stats: True
     pretrained: True
@@ -10,10 +10,10 @@ common:
     max_iter: 380000
     warmup_steps: 0
     warmup_lr: 0.2
-    base_lr: 0.0001
+    base_lr: 0.00001
     lr_steps: [300000]
     lr_mults: [0.1]
-    use_weight: True
+    use_weight: False
     double_softmax: False
     teacher_alpha: 0.99
     momentum: 0.9
@@ -29,8 +29,11 @@ common:
     fix_constant: True
     constant: 0.001
     double_softmax: False
-    th: 0.5
     lambda_uk: 1
+    lambda_entropy: 1
+    cls_balance: 0.01
+    lambda_aug: 10
+    aug_thresh: 0.6
 
     epsilon: 0.02
 

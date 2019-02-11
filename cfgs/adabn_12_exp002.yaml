@@ -1,5 +1,5 @@
 common:
-    exp_name: adabn_12_exp001
+    exp_name: adabn_12_exp002
     arch: os2_resnet152
     workers: 1
     batch_size: 48 
@@ -10,7 +10,7 @@ common:
     max_iter: 380000
     warmup_steps: 0
     warmup_lr: 0.2
-    base_lr: 0.0001
+    base_lr: 0.00001
     lr_steps: [300000]
     lr_mults: [0.1]
     use_weight: True

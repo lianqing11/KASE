@@ -125,7 +125,7 @@ def accuracy(output, target, topk=(1,)):
         res.append(correct_k.mul_(100.0 / batch_size))
     return res
 
-def accuracy_2(output, output_uk, target, epsilon, topk=(1,)):
+def accuracy_2(output, output_uk, target, epsilon, topk=(1,), unknown=12):
     """Computes the precision@k for the specified values of k"""
     maxk = max(topk)
     batch_size = target.size(0)
@@ -134,7 +134,7 @@ def accuracy_2(output, output_uk, target, epsilon, topk=(1,)):
     pred = pred.t()
     pred_output = pred_output.t()
     pred_uk = F.sigmoid(output_uk)
-    pred[0][torch.squeeze(pred_uk>epsilon)] = 10
+    pred[0][torch.squeeze(pred_uk>epsilon)] = unknown
 
     correct = pred.eq(target.view(1, -1).expand_as(pred))
     res = []
@@ -302,12 +302,12 @@ class PredictionEvaluator_2(object):
         tgt_pred_y = np.argmax(tgt_pred_prob_y, axis=1)
         tgt_pred = np.max(tgt_pred_prob_y, axis = 1)
         uk_pred = sigmoid(uk_pred)
-        tgt_pred_y[np.squeeze(uk_pred > epsilon)] = 10
+        tgt_pred_y[np.squeeze(uk_pred > epsilon)] = self.n_classes
 
-        aug_class_true_pos = np.zeros((self.n_classes,))
+        aug_class_true_pos = np.zeros((self.n_classes+1,))
 
         # Compute per-class accuracy
-        for cls_i in range(self.n_classes):
+        for cls_i in range(self.n_classes+1):
             aug_class_true_pos[cls_i] = ((self.y == cls_i) & (tgt_pred_y == cls_i)).sum()
 
         aug_cls_acc = aug_class_true_pos.astype(float) / np.maximum(self.hist.astype(float), 1.0)

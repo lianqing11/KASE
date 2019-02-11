@@ -78,8 +78,18 @@ def main():
         student_model = models.__dict__[args.arch](num_classes = args.num_classes,
                                                    pretrained = args.pretrained,
                                                    avgpool_size=input_size/32)
+        teacher_model = models.__dict__[args.arch](num_classes=args.num_classes,
+                                                   pretrained=args.pretrained,
+                                                   avgpool_size=input_size/32)
+
+
+
     student_model.cuda()
     student_params = list(student_model.parameters())
+
+
+    teacher_model.cuda()
+    teacher_params = list(teacher_model.parameters())
 
 
     args.save_path = "checkpoint/" + args.exp_name
@@ -120,6 +130,9 @@ def main():
         student_optimizer = torch.optim.Adam(student_model.parameters(),
                                      args.base_lr)
     # optionally resume from a checkpoint
+    teacher_optimizer = utils.WeightEMA(teacher_params, student_params,
+                                        alpha=args.teacher_alpha)
+
     print("Build network")
     last_iter = -1
     best_prec1 = 0
@@ -233,13 +246,17 @@ def main():
 
     train(train_source_loader, train_target_loader, val_loader,
            student_model, criterion,
-           student_optimizer = student_optimizer,
-           lr_scheduler = lr_scheduler,
-           start_iter = last_iter+1, tb_logger = tb_logger)
+           student_optimizer=student_optimizer,
+           lr_scheduler=lr_scheduler,
+           start_iter=last_iter+1, tb_logger = tb_logger,
+          teacher_model=teacher_model,
+          teacher_optimizer=teacher_optimizer)
 
 def train(train_source_loader, train_target_loader, val_loader,
           student_model, criterion, student_optimizer,
-           lr_scheduler, start_iter, tb_logger):
+           lr_scheduler, start_iter, tb_logger,
+          teacher_model=None,
+          teacher_optimizer=None):
 
     global best_prec1
 
@@ -282,6 +299,7 @@ def train(train_source_loader, train_target_loader, val_loader,
         input_source = Variable(input_source).cuda()
 
         input_target = Variable(input_target).cuda(async=True)
+        input_target1 = Variable(input_target1).cuda(async=True)
         # compute output for source data
         source_output, source_output2 = student_model(input_source)
 
@@ -294,34 +312,65 @@ def train(train_source_loader, train_target_loader, val_loader,
             loss_cls = criterion(softmax_source_output[known_ind], label_source[known_ind])
         else:
             loss_cls = criterion(source_output[known_ind], label_source[known_ind])
+
+
         loss = loss_cls
         uk_label = label_source.clone()
         uk_label[uk_label!=12]=0
         uk_label[uk_label==12]=1
         uk_label = uk_label.float().unsqueeze(1)
         loss_uk = criterion_uk(source_output2, uk_label)
+
+
+        loss_entropy = torch.mean(
+            torch.mul(softmax_source_output[label_source==args.num_classes],
+                    torch.log(softmax_source_output[label_source==args.num_classes])))
         loss += args.lambda_uk * loss_uk
-        result = student_model(input_target)
-        del result
+        loss += args.lambda_entropy * loss_entropy
         #loss for unknown class
         #integrate loss_cls and loss_entropy
         #compute accuracy
+
+
+
+
+        # for target data
+
+        stu_out, stu_out2 = student_model(input_target)
+        tea_out, tea_out2 = teacher_model(input_target1)
+
+        loss_aug, conf_mask, loss_cls_bal = \
+            utils.compute_aug_loss(stu_out, tea_out, args.aug_thresh,
+                                   args.cls_balance, args)
+        conf_mask_count = torch.sum(conf_mask) / args.batch_size
+        loss_aug = torch.mean(loss_aug)
+        loss += args.lambda_aug * loss_aug
+        loss += args.cls_balance * args.lambda_aug * loss_cls_bal
+
+        student_optimizer.zero_grad()
+        loss.backward()
+        student_optimizer.step()
+        teacher_optimizer.step()
+
+
         eval_output.append(softmax_source_output.cpu().data.numpy())
         eval_target.append(label_source.cpu().data.numpy())
         eval_uk.append(source_output2.cpu().data.numpy())
         prec1, prec5 = accuracy_2(softmax_source_output.data, source_output2.data, label_source, 0.5, topk=(1, 5))
+
+
+
 
         losses.update(loss_cls.item())
         top1.update(prec1.item())
         top5.update(prec5.item())
         # compute gradient and do SGD step
         losses_cls_uk.update(loss_uk.item())
+        losses_entropy.update(loss_entropy.item())
+        losses_aug.update(loss_aug.item())
+        losses_bal.update(loss_cls.item())
 
 
-
-        student_optimizer.zero_grad()
-        loss.backward()
-        student_optimizer.step()
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
@@ -336,17 +385,23 @@ def train(train_source_loader, train_target_loader, val_loader,
             tb_logger.add_scalar('lr', current_lr, curr_step)
             print(args.exp_name)
             logger.info('Iter: [{0}/{1}]\t'
-                        'Time: {batch_time.val:.3f}\t'
-                        'Data: {data_time.val:.3f}\t'
-                        'loss: {loss.val:.4f}\t'
-                        'loss_uk: {loss_uk.val:.4f}\t'
-                        'Prec@1: {top1.val:.3f}\t'
-                        'Prec@5: {top5.val:.3f}\t'
+                        'Time: {batch_time.avg:.3f}\t'
+                        'Data: {data_time.avg:.3f}\t'
+                        'loss: {loss.avg:.4f}\t'
+                        'loss_uk: {loss_uk.avg:.4f}\t'
+                        'loss_aug: {loss_aug.avg:.4f}\t'
+                        'loss_bal: {loss_bal.avg:.4f}\t'
+                        'loss_entropy: {loss_entropy.avg:.4f}\t'
+                        'Prec@1: {top1.avg:.3f}\t'
+                        'Prec@5: {top5.avg:.3f}\t'
                         'lr: {lr:.6f}'.format(
                    curr_step, len(train_source_loader), batch_time=batch_time,
                    data_time=data_time, loss=losses,
                    loss_uk=losses_cls_uk,
                    top1=top1, top5=top5,
+                   loss_aug=losses_aug,
+                   loss_bal=losses_bal,
+                   loss_entropy=losses_entropy,
                    lr=current_lr))
 
         if (curr_step+1)%args.val_freq == 0 :
@@ -365,7 +420,7 @@ def train(train_source_loader, train_target_loader, val_loader,
                 tb_logger.add_scalar('acc_'+args.class_name[cls], aug_cls_acc[cls], curr_step)
 
 
-            val_loss, prec1, prec5, mean_aug_class_acc, aug_cls_acc, best_acc  = validate(val_loader, student_model, criterion)
+            val_loss, prec1, prec5, mean_aug_class_acc, aug_cls_acc, best_acc  = validate(val_loader, teacher_model, criterion)
             if not tb_logger is None:
                 tb_logger.add_scalar('loss_val', val_loss, curr_step)
                 tb_logger.add_scalar('acc1_val', prec1, curr_step)
@@ -381,7 +436,7 @@ def train(train_source_loader, train_target_loader, val_loader,
             save_checkpoint({
                 'step': curr_step,
                 'arch': args.arch,
-                'state_dict': student_model.state_dict(),
+                'state_dict': teacher_model.state_dict(),
                 'best_prec1': best_prec1,
                 'student_optimizer' : student_optimizer.state_dict(),
             }, is_best, args.save_path+'/ckpt' )

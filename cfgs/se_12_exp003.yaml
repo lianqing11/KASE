@@ -1,8 +1,8 @@
 common:
-    exp_name: adabn_12_exp001
+    exp_name: se_12_exp002
     arch: os2_resnet152
     workers: 1
-    batch_size: 48 
+    batch_size: 24 
     bn_group: 2
     bn_sync_stats: True
     pretrained: True
@@ -31,6 +31,10 @@ common:
     double_softmax: False
     th: 0.5
     lambda_uk: 1
+    
+    cls_balance: 0.01
+    lambda_aug: 10
+    aug_thresh: 0.956
 
     epsilon: 0.02
 
