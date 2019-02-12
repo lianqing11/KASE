@@ -488,6 +488,51 @@ def compute_aug_loss_weight(stu_out, tea_out, confidence_thresh, prob_uk, cls_ba
     return aug_loss, conf_mask, equalise_cls_loss
 
 
+
+def new_compute_aug_loss_enp(stu_out, tea_out, confidence_thresh, uk, cls_balance=0.001, args=None):
+    stu_out = F.softmax(stu_out, dim=1)
+    tea_out = F.softmax(tea_out, dim=1)
+    conf_tea = torch.max(tea_out, 1)[0]
+    conf_mask = torch.gt(conf_tea, confidence_thresh).float()
+
+    prob_uk = F.sigmoid(uk)
+    enp_uk = -1*(prob_uk * torch.log(prob_uk+1e-5)+1e-6).mean(dim=1)
+    enp_uk = torch.exp(enp_uk)
+
+    d_aug_loss = stu_out - tea_out
+    aug_loss = d_aug_loss * d_aug_loss
+
+    enp_known =-1*(tea_out * torch.log(tea_out+1e-5)).mean(dim=1)
+    enp_known = torch.exp(enp_known).view(-1,1)
+    if args.enp_known_weight == True:
+        aug_loss_enp_known_weight = aug_loss * enp_known.detach()
+        aug_loss_enp_known_mean = torch.mean(aug_loss_enp_known_weight).detach()
+        if aug_loss_enp_known_mean >0.1:
+            aug_loss_enp_known_weight = aug_loss_enp_known_weight * torch.mean(aug_loss).detach() / (aug_loss_enp_known_mean+1e-5)
+        aug_loss = aug_loss_enp_known_weight
+
+
+    if args.prob_uk:
+        weight_prob_uk = torch.exp(1/prob_uk)
+        aug_loss_prob_uk = aug_loss * weight_prob_uk.detach()
+        aug_loss_prob_uk_mean = torch.mean(aug_loss_prob_uk).detach()
+        if aug_loss_prob_uk_mean > 0.1:
+            aug_loss_prob_uk = aug_loss_prob_uk * torch.mean(aug_loss).detach() / (aug_loss_prob_uk_mean+1e-5)
+        aug_loss = aug_loss_prob_uk
+    if cls_balance > 0.0:
+        avg_cls_prob = torch.mean(stu_out, 0)
+        equalise_cls_loss = bugged_cls_bal_bce(
+                            avg_cls_prob, float(1.0 / args.num_classes))
+        equalise_cls_loss = torch.mean(equalise_cls_loss) * args.num_classes
+        equalise_cls_loss = equalise_cls_loss * torch.mean(conf_mask, 0)
+    else:
+        equalise_cls_loss = None
+    return aug_loss, conf_mask, equalise_cls_loss
+
+
+
+
+
 def compute_aug_loss_enp(stu_out, tea_out, confidence_thresh, prob_uk, cls_balance=0.001, args=None):
     #need add softmax
     #need to add loss weight

@@ -340,8 +340,9 @@ def train(train_source_loader, train_target_loader, val_loader,
         tea_out, tea_out2 = teacher_model(input_target1)
 
         loss_aug, conf_mask, loss_cls_bal = \
-            utils.compute_aug_loss(stu_out, tea_out, args.aug_thresh,
-                                   args.cls_balance, args)
+            utils.new_compute_aug_loss_enp(stu_out, tea_out, args.aug_thresh,
+                                           tea_out2,
+                                           args.cls_balance, args)
         conf_mask_count = torch.sum(conf_mask) / args.batch_size
         loss_aug = torch.mean(loss_aug)
         loss += args.lambda_aug * loss_aug
