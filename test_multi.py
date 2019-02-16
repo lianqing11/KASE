@@ -168,11 +168,12 @@ def validate(val_loader, model, criterion):
     top5 = AverageMeter(0)
     # switch to evaluate mode
     model.eval()
+    eval_target = []
+    eval_output = []
+    eval_uk = []
 
     logger = logging.getLogger('global_logger')
     end = time.time()
-    eval_output = []
-    eval_target = []
     for i, (input, target) in enumerate(val_loader):
         target = target.cuda(async=True)
         input_var = torch.autograd.Variable(input.cuda(), volatile=True)
@@ -185,8 +186,10 @@ def validate(val_loader, model, criterion):
         # measure accuracy and record loss
         softmax_output = F.softmax(output, dim=1)
         #loss for known class
+        output1 = F.sigmoid(output1)
+        eval_target.append(target.cpu().data.numpy())
         eval_output.append(softmax_output.cpu().data.numpy())
-        eval_target.append(target_var.cpu().data.numpy())
+        eval_uk.append(output1.cpu().data.numpy())
         prec1, prec5 = accuracy(softmax_output.data, target, topk=(1, 5))
         #losses.update(loss.item())
         top1.update(prec1.item())
@@ -195,7 +198,7 @@ def validate(val_loader, model, criterion):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if i %1000 == 0:
+        if i % 1000 == 0:
             logger.info('Test: [{0}/{1}]\t'
                   'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
@@ -203,12 +206,15 @@ def validate(val_loader, model, criterion):
                   'Prec@5 {top5.val:.3f} ({top5.avg:.3f})\t'.format(
                    i, len(val_loader), batch_time=batch_time, loss=losses,
                    top1=top1, top5=top5))
+
+
     eval_target = np.concatenate(eval_target, axis=0)
     eval_output = np.concatenate(eval_output, axis=0)
-    evaluator = utils.PredictionEvaluator(eval_target, args.num_classes)
-    mean_aug_class_acc, aug_cls_acc = evaluator.evaluate(eval_output)
-    logger.info("mean_aug_class_acc {:.3f}, aug_cls_acc {}".format(mean_aug_class_acc, aug_cls_acc))
-
+    eval_uk = np.concatenate(eval_uk, axis=0)
+    evaluator = utils.PredictionEvaluator_2(eval_target, args.num_classes)
+    for i in range(10):
+        t_clss_acc, t_aug_cls_acc = evaluator.evaluate(eval_output, eval_uk, i*0.1)
+        print("epslion {:.2f}, mean_aug_class_acc {}, aug_cls_acc {}".format(i*0.1, t_clss_acc, t_aug_cls_acc))
 
     logger.info(' * Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f}'.format(top1=top1, top5=top5))
     model.train(mode=True)
@@ -227,8 +233,9 @@ def validate_multi(val_loader, model, criterion):
 
     logger = logging.getLogger('global_logger')
     end = time.time()
-    eval_output =[]
-    eval_target =  []
+    eval_output = []
+    eval_target = []
+    eval_uk = []
     for i, (input, target) in enumerate(val_loader):
         target = target.cuda(async=True)
         input_var = torch.autograd.Variable(input.cuda(), volatile=True)
@@ -241,10 +248,11 @@ def validate_multi(val_loader, model, criterion):
         # measure accuracy and record loss
         softmax_output = F.softmax(output, dim=1).mean(0)
         softmax_output = softmax_output.unsqueeze(0)
+        output1 = F.sigmoid(output1).mean(0).unsqueeze(0)
         #loss for known class
         eval_output.append(softmax_output.cpu().data.numpy())
         eval_target.append(target_var.cpu().data.numpy())
-
+        eval_uk.append(output1.cpu().data.numpy())
         prec1, prec5 = accuracy(softmax_output.data, target, topk=(1, 5))
         #losses.update(loss.item())
         top1.update(prec1.item())
@@ -253,7 +261,7 @@ def validate_multi(val_loader, model, criterion):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if i % 10000 == 0:
+        if i % 1000 == 0:
             logger.info('Test: [{0}/{1}]\t'
                   'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
@@ -261,11 +269,14 @@ def validate_multi(val_loader, model, criterion):
                   'Prec@5 {top5.val:.3f} ({top5.avg:.3f})\t'.format(
                    i, len(val_loader), batch_time=batch_time, loss=losses,
                    top1=top1, top5=top5))
+
     eval_target = np.concatenate(eval_target, axis=0)
     eval_output = np.concatenate(eval_output, axis=0)
-    evaluator = utils.PredictionEvaluator(eval_target, args.num_classes)
-    mean_aug_class_acc, aug_cls_acc = evaluator.evaluate(eval_output)
-    logger.info("mean_aug_class_acc {:.3f}, aug_cls_acc {}".format(mean_aug_class_acc, aug_cls_acc))
+    eval_uk = np.concatenate(eval_uk, axis=0)
+    evaluator = utils.PredictionEvaluator_2(eval_target, args.num_classes)
+    for i in range(10):
+        t_clss_acc, t_aug_cls_acc = evaluator.evaluate(eval_output, eval_uk, i*0.1)
+        print("epslion {:.2f}, mean_aug_class_acc {}, aug_cls_acc {}".format(i*0.1, t_clss_acc, t_aug_cls_acc))
 
 
     logger.info(' * Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f}'.format(top1=top1, top5=top5))
