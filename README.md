@@ -17,7 +17,7 @@ pip install -r requirements.txt
 ## Datasets
 
 
-Follow the github [REPO](https://github.com/VisionLearningGroup/visda-2018-public) to download the  [Syn2Real-O] dataset, and put it in the `./data/visda` folder.
+Follow the github [REPO](https://github.com/VisionLearningGroup/visda-2018-public) to download the  [Syn2Real-O](http://ai.bu.edu/syn2real/index.html) dataset, and put it in the `./data/visda` folder.
 
 ## Training Examples
 
@@ -26,7 +26,7 @@ Follow the github [REPO](https://github.com/VisionLearningGroup/visda-2018-publi
 python train_source_only.py --config cfgs/source_only_exp001.yaml
 ```
 
-### Adabn
+### [Adabn](https://arxiv.org/abs/1603.04779)
 ```
 python train_adabn.py --config cfgs/adabn_exp001.yaml
 ```
