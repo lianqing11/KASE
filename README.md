@@ -8,7 +8,7 @@ The code is developed under the following configuration.
 1 GPU (with at least 11G GPU memories), which is set for the correspoinding batch size.
 
 #### Software:
-Python 3, Pytorch 0.4, and CUDA 8.0 is necessary before running the scripts. To install the required pythonn packages(expect Pytorch), run
+Python 3, Pytorch 0.4, and CUDA 8.0 are necessary before running the scripts. To install the required pythonn packages (expect Pytorch), run
 
 ```
 pip install -r requirements.txt
