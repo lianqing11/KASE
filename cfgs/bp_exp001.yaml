@@ -1,12 +1,12 @@
 common:
-    exp_name: kase_exp004
-    arch: os2_resnet152
+    exp_name: bp_exp001
+    arch: d_resnet152
     workers: 1
-    batch_size: 24 
+    batch_size: 48 
     bn_group: 2
     bn_sync_stats: True
     pretrained: True
-    num_classes: 12
+    num_classes: 13
     max_iter: 380000
     warmup_steps: 0
     warmup_lr: 0.2
@@ -14,12 +14,12 @@ common:
     lr_steps: [300000]
     lr_mults: [0.1]
     use_weight: False
-    double_softmax: True
+    double_softmax: False
     teacher_alpha: 0.99
     momentum: 0.9
     weight_decay: 0.0001
     lr_gamma: 0.1
-    val_freq: 100
+    val_freq: 500
     print_freq: 10
     cls_balance: 0.01
     load_path:
@@ -29,15 +29,11 @@ common:
     fix_constant: True
     constant: 0.001
     double_softmax: False
+    th: 0.5
     lambda_uk: 1
-    lambda_entropy: 1
-    cls_balance: 0.01
-    lambda_aug: 10
-    aug_thresh: 0.7
 
+    lambda_bp: 0.1
     epsilon: 0.02
-    enp_known_weight: True
-    prob_uk: False
 
     src_hflip: True
     src_xlat_range: 0.0
@@ -75,4 +71,4 @@ common:
     train_source_source: ./data/visda/list/train_list.txt
     train_target_source: ./data/visda/list/validation_list.txt
     val_root: data/visda/validation/
-    val_source: ./data/visda/list/validation_sample_list.txt
+    val_source: ./data/visda/list/validation_list.txt
