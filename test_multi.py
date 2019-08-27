@@ -274,9 +274,9 @@ def validate_multi(val_loader, model, criterion):
     eval_output = np.concatenate(eval_output, axis=0)
     eval_uk = np.concatenate(eval_uk, axis=0)
     evaluator = utils.PredictionEvaluator_2(eval_target, args.num_classes)
-    for i in range(10):
-        t_clss_acc, t_aug_cls_acc = evaluator.evaluate(eval_output, eval_uk, i*0.1)
-        print("epslion {:.2f}, mean_aug_class_acc {}, aug_cls_acc {}".format(i*0.1, t_clss_acc, t_aug_cls_acc))
+    for i in range(100):
+        t_clss_acc, t_aug_cls_acc = evaluator.evaluate(eval_output, eval_uk, i*0.01)
+        logger.info("epslion {:.2f}, mean_aug_class_acc {}, aug_cls_acc {}".format(i*0.01, t_clss_acc, t_aug_cls_acc))
 
 
     logger.info(' * Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f}'.format(top1=top1, top5=top5))
