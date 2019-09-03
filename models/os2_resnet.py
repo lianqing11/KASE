@@ -123,7 +123,7 @@ class DomainAdaptModule(nn.Module):
             tgt_layer.running_var = src_layer.running_var
 
 
-    
+
 
 class ResNet(DomainAdaptModule):
 
@@ -255,7 +255,7 @@ def os2_resnet101(pretrained=False, **kwargs):
        pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
        model_dict.update(pretrained_dict)
        model.load_state_dict(model_dict)
-       print("pretrained resnet 101...")    
+       print("pretrained resnet 101...")
     return model
 
 
