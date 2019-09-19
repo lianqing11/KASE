@@ -1,5 +1,5 @@
 common:
-    exp_name: a_d_kase_exp001
+    exp_name: kase_a_d_exp001
     arch: os2_alexnet
     workers: 1
     batch_size: 30
