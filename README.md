@@ -51,6 +51,15 @@ python train_se.py --config cfgs/se_exp001.yaml
 python train_kase.py --config cfgs/kase_exp001.yaml
 ```
 
+### Run KASE on Office A -> D dataset
+```
+python train_kase_office.py --config cfgs/office/kase_a_d_exp001.yaml
+```
+
+### Test the model 
+```
+python test_multi.py --config your_yaml
+```
 
 
 ## License
