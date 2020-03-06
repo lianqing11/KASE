@@ -81,7 +81,7 @@ def main():
     student_model.cuda()
     student_params = list(student_model.parameters())
     crop_size = input_size
-    val_size = 256
+    val_size = 182
 
 
 
@@ -252,23 +252,21 @@ def train(train_source_loader, train_target_loader, val_loader, source_val_loade
         input_source = Variable(input_source).cuda()
         label_target = Variable(label_target).cuda()
         input_target = Variable(input_target).cuda()
+        input = torch.cat([input_source, input_target], dim=0)
+        label = torch.cat([label_source, label_target], dim=0)
 
         # compute output for source data
-        source_output = student_model(input_source)
+        output = student_model(input)
 
         # measure accuracy and record loss
-        softmax_source_output = F.softmax(source_output, dim=1)
 
         #loss for known class
-        loss = criterion(source_output, label_source)
+        loss = criterion(output, label)
 
         #loss for unknown class
         #integrate loss_cls and loss_entropy
         #compute accuracy
-        prec1, prec5 = accuracy(softmax_source_output.data, label_source, topk=(1, 5))
-        with torch.no_grad():
-            _ = student_model(input_target)
-            del _
+        prec1, prec5 = accuracy(output.data, label, topk=(1, 5))
 
         losses.update(loss.item())
         top1.update(prec1.item())

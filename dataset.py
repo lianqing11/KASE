@@ -25,9 +25,9 @@ class NormalDataset(Dataset):
 
 
     def __getitem__(self, idx):
-        filename = osp.join(self.root_dir, self.metas.ix[idx, 0])
+        filename = osp.join(self.root_dir, self.metas.loc[idx, 0])
 
-        label = self.metas.ix[idx, 1]
+        label = self.metas.loc[idx, 1]
         ## memcached
         img = Image.open(filename).convert('RGB')
         #img = np.zeros((350, 350, 3), dtype=np.uint8)
@@ -62,8 +62,8 @@ class TeacherDataset(Dataset):
         return self.num
 
     def __getitem__(self, idx):
-        filename = self.root_dir + '/' + self.metas.ix[idx,0]
-        cls = self.metas.ix[idx,1]
+        filename = self.root_dir + '/' + self.metas.loc[idx,0]
+        cls = self.metas.loc[idx,1]
 
         ## memcached
 
@@ -71,6 +71,6 @@ class TeacherDataset(Dataset):
 
         ## transform
         if self.transform is not None:
-            img1, img2 = self.transform(img)
+            img1 = self.transform(img)
 
-        return img1, img2, cls
+        return img1, cls

@@ -20,6 +20,7 @@ def simple_group_split(world_size, rank, num_groups):
     group_size = world_size // num_groups
     return groups[rank//group_size]
 
+import logging
 def create_logger(name, log_file, level=logging.INFO):
     l = logging.getLogger(name)
     formatter = logging.Formatter('[line:%(lineno)4d] %(message)s')
@@ -31,6 +32,7 @@ def create_logger(name, log_file, level=logging.INFO):
     l.addHandler(fh)
     l.addHandler(sh)
     return l
+
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""

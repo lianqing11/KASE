@@ -1,8 +1,8 @@
 common:
-    exp_name: source_only_exp001
+    exp_name: co_exp001
     arch: resnet50
     workers: 4
-    batch_size: 128 
+    batch_size: 64 
     bn_group: 2
     bn_sync_stats: True
     pretrained: True
@@ -19,7 +19,7 @@ common:
     momentum: 0.9
     weight_decay: 0.001
     lr_gamma: 0.1
-    val_freq: 100
+    val_freq: 500
     print_freq: 10
     cls_balance: 0.01
     load_path:

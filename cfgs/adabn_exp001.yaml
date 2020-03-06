@@ -1,34 +1,33 @@
 common:
     exp_name: adabn_exp001
-    arch: resnet152
-    workers: 1
-    batch_size: 48 
+    arch: resnet50
+    workers: 4
+    batch_size: 128 
     bn_group: 2
     bn_sync_stats: True
     pretrained: True
-    num_classes: 13
+    num_classes: 12
     max_iter: 380000
     warmup_steps: 0
     warmup_lr: 0.2
     base_lr: 0.00001
     lr_steps: [300000]
     lr_mults: [0.1]
-    use_weight: True
+    use_weight: False
     double_softmax: False
     teacher_alpha: 0.99
     momentum: 0.9
-    weight_decay: 0.0001
+    weight_decay: 0.001
     lr_gamma: 0.1
     val_freq: 100
     print_freq: 10
     cls_balance: 0.01
-    load_path:
+    load_path: ./checkpoint/source_only_exp001/ckptmodel_best.pth.tar
     fix_constant: True
     constant: 0.001
     th: 0.5
     fix_constant: True
     constant: 0.001
-    double_softmax: False
     th: 0.5
     lambda_uk: 1
 
@@ -63,11 +62,13 @@ common:
     tgt_scale_u_range: [0.75, 1.333]
     tgt_cutout_prob: 0.0
     tgt_cutout_size: 0.3
-    class_name: [plane, bcycl, bus, car, horse, knife, mcycl, person, plant, sktbd, train, truck, unknown]
+    class_name: [plane, bcycl, bus, car, horse, knife, mcycl, person, plant, sktbd, train, truck]
 
     train_source_root: data/visda/train/
     train_target_root: data/visda/validation/
-    train_source_source: ./data/visda/list/train_list.txt
-    train_target_source: ./data/visda/list/validation_list.txt
+    train_source_source: ./data/visda/train/train.txt
+    train_target_source: ./data/visda/validation/train.txt
     val_root: data/visda/validation/
-    val_source: ./data/visda/list/validation_sample_list.txt
+    val_source: ./data/visda/validation/val.txt
+    source_val_root: data/visda/train/
+    source_val_source: ./data/visda/train/val.txt

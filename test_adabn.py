@@ -57,6 +57,7 @@ class ColorAugmentation(object):
 
 def main():
     global args, best_prec1
+    global logger
     args = parser.parse_args()
 
     with open(args.config) as f:
@@ -90,8 +91,6 @@ def main():
     if not osp.exists(args.save_path):
         os.mkdir(args.save_path)
 
-    global logger
-    tb_logger = SummaryWriter(args.save_path)
     logger = create_logger('global_logger', args.save_path+'/log.txt')
 
     for key, val in vars(args).items():
@@ -129,9 +128,9 @@ def main():
     if args.load_path:
         print(args.load_path)
         if args.resume_opt:
-            best_prec1, last_iter = load_state(args.load_path, model, optimizer=student_optimizer)
+            best_prec1, last_iter = load_state(args.load_path, student_model, optimizer=student_optimizer)
         else:
-            load_state(args.load_path, model)
+            load_state(args.load_path, student_model)
 
     cudnn.benchmark = True
 
@@ -202,15 +201,19 @@ def main():
         validate(val_loader, student_model, criterion)
         return
 
+    val_loss, prec1, prec5  = validate(val_loader, student_model, criterion)
+    source_val_loss, source_prec1, source_prec5  = validate(source_val_loader, student_model, criterion)
+
+
     train(train_source_loader, train_target_loader, val_loader, source_val_loader,
            student_model, criterion,
            student_optimizer = student_optimizer,
            lr_scheduler = lr_scheduler,
-           start_iter = last_iter+1, tb_logger = tb_logger)
+           start_iter = last_iter+1)
 
 def train(train_source_loader, train_target_loader, val_loader, source_val_loader,
           student_model, criterion, student_optimizer,
-           lr_scheduler, start_iter, tb_logger):
+           lr_scheduler, start_iter):
 
     global best_prec1
 
@@ -237,7 +240,6 @@ def train(train_source_loader, train_target_loader, val_loader, source_val_loade
     eval_target = []
     eval_uk = []
     for i, (batch_source, batch_target) in enumerate(zip(train_source_loader, train_target_loader)):
-        input_source, label_source = batch_source
         input_target, label_target = batch_target
 
         curr_step = start_iter + i
@@ -248,38 +250,28 @@ def train(train_source_loader, train_target_loader, val_loader, source_val_loade
         data_time.update(time.time() - end)
 
 
-        label_source = Variable(label_source).cuda()
-        input_source = Variable(input_source).cuda()
         label_target = Variable(label_target).cuda()
         input_target = Variable(input_target).cuda()
 
         # compute output for source data
-        source_output = student_model(input_source)
+        with torch.no_grad():
+            target_output = student_model(input_target)
 
         # measure accuracy and record loss
-        softmax_source_output = F.softmax(source_output, dim=1)
 
         #loss for known class
-        loss = criterion(source_output, label_source)
 
         #loss for unknown class
         #integrate loss_cls and loss_entropy
         #compute accuracy
-        prec1, prec5 = accuracy(softmax_source_output.data, label_source, topk=(1, 5))
-        with torch.no_grad():
-            _ = student_model(input_target)
-            del _
+        prec1, prec5 = accuracy(target_output.data, label_target, topk=(1, 5))
 
-        losses.update(loss.item())
         top1.update(prec1.item())
         top5.update(prec5.item())
         # compute gradient and do SGD step
 
 
 
-        student_optimizer.zero_grad()
-        loss.backward()
-        student_optimizer.step()
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
@@ -288,10 +280,6 @@ def train(train_source_loader, train_target_loader, val_loader, source_val_loade
         # measure elapsed time
 
         if curr_step % args.print_freq == 0 :
-            tb_logger.add_scalar('loss_train', losses.avg, curr_step)
-            tb_logger.add_scalar('acc1_train', top1.avg, curr_step)
-            tb_logger.add_scalar('acc5_train', top5.avg, curr_step)
-            tb_logger.add_scalar('lr', current_lr, curr_step)
             print(args.exp_name)
             logger.info('Iter: [{0}/{1}]\t'
                   'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
@@ -308,15 +296,7 @@ def train(train_source_loader, train_target_loader, val_loader, source_val_loade
         if (curr_step+1)%args.val_freq == 0 :
 
             val_loss, prec1, prec5  = validate(val_loader, student_model, criterion)
-            if not tb_logger is None:
-                tb_logger.add_scalar('loss_val', val_loss, curr_step)
-                tb_logger.add_scalar('acc1_val', prec1, curr_step)
-                tb_logger.add_scalar('acc5_val', prec5, curr_step)
             source_val_loss, source_prec1, source_prec5  = validate(source_val_loader, student_model, criterion)
-            if not tb_logger is None:
-                tb_logger.add_scalar('source loss_val', source_val_loss, curr_step)
-                tb_logger.add_scalar('source acc1_val', source_prec1, curr_step)
-                tb_logger.add_scalar('source acc5_val', source_prec5, curr_step)
 
 
             # remember best prec@1 and save checkpoint
@@ -373,7 +353,7 @@ def validate(val_loader, model, criterion):
                    top1=top1, top5=top5))
 
     logger.info(' * Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f}'.format(top1=top1, top5=top5))
-    model.train(mode=True)
+    model.train()
 
     return losses.avg, top1.avg, top5.avg
 

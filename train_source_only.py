@@ -80,6 +80,9 @@ def main():
                                                    avgpool_size=input_size/32)
     student_model.cuda()
     student_params = list(student_model.parameters())
+    crop_size = input_size
+    val_size = 182
+
 
 
     args.save_path = "checkpoint/" + args.exp_name
@@ -87,6 +90,7 @@ def main():
     if not osp.exists(args.save_path):
         os.mkdir(args.save_path)
 
+    global logger
     tb_logger = SummaryWriter(args.save_path)
     logger = create_logger('global_logger', args.save_path+'/log.txt')
 
@@ -134,83 +138,46 @@ def main():
     # Data loading code
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
-    se_normalize = se_transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                           std=[0.229, 0.224, 0.225])
-
-    src_aug = se_transforms.ImageAugmentation(
-        args.src_hflip, args.src_xlat_range,
-        args.src_affine_std, rot_std = args.src_rot_std,
-        intens_scale_range_lower = args.src_intens_scale_range_lower,
-        intens_scale_range_upper = args.src_intens_scale_range_upper,
-        colour_rot_std=args.src_colour_rot_std,
-        colour_off_std=args.src_colour_off_std,
-        greyscale=args.src_greyscale,
-        scale_u_range=args.src_scale_u_range,
-        scale_x_range=(None, None),
-        scale_y_range=(None, None),
-        cutout_probability = args.src_cutout_prob,
-        cutout_size = args.src_cutout_size
-    )
-    tgt_aug = se_transforms.ImageAugmentation(
-        args.tgt_hflip, args.tgt_xlat_range,
-        args.tgt_affine_std, rot_std = args.tgt_rot_std,
-        intens_scale_range_lower=args.tgt_intens_scale_range_lower,
-        intens_scale_range_upper=args.tgt_intens_scale_range_upper,
-        colour_rot_std=args.tgt_colour_rot_std,
-        colour_off_std=args.tgt_colour_off_std,
-        greyscale=args.tgt_greyscale,
-        scale_u_range=args.tgt_scale_u_range,
-        scale_x_range=[None, None],
-        scale_y_range=[None, None],
-        cutout_probability=args.tgt_cutout_prob,
-        cutout_size=args.tgt_cutout_size)
-
-
-
-
-
-    border_value = int(np.mean([0.485, 0.456, 0.406]) * 255 + 0.5)
-    test_aug = se_transforms.ImageAugmentation(
-        args.tgt_hflip, args.tgt_xlat_range,
-        0.0, rot_std=0.0,
-        scale_u_range=args.tgt_scale_u_range,
-        scale_x_range=[None, None],
-        scale_y_range=[None, None])
-
     train_source_dataset = NormalDataset(
         args.train_source_root,
         args.train_source_source,
         transform = transforms.Compose([
-            se_transforms.ScaleCropAndAugmentAffine(
-                (input_size, input_size),
-                args.padding, True,
-                src_aug, border_value,
-                np.array([0.485, 0.456, 0.406]),
-                np.array([0.229, 0.224, 0.225]))
+            transforms.RandomResizedCrop(crop_size),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize,
         ]), args=args )
 
-    train_target_dataset = TeacherDataset(
+    train_target_dataset = NormalDataset(
         args.train_target_root,
         args.train_target_source,
         transform = transforms.Compose([
-            se_transforms.ScaleCropAndAugmentAffinePair(
-                (input_size, input_size),
-                args.padding, 0,
-                True, tgt_aug, border_value,
-                np.array([0.485, 0.456, 0.406]),
-                np.array([0.229, 0.224, 0.225]))
+        transforms.RandomResizedCrop(crop_size),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize,
         ]), args=args)
 
     val_dataset = NormalDataset(
         args.val_root,
         args.val_source,
         transform = transforms.Compose([
-            se_transforms.ScaleAndCrop(
-                (input_size, input_size),
-                args.padding, False,
-                np.array([0.485, 0.456, 0.406]),
-                np.array([0.229, 0.224, 0.225]))
+            transforms.Resize(val_size),
+            transforms.CenterCrop(crop_size),
+            transforms.ToTensor(),
+            normalize,
         ]),is_train=False, args=args )
+
+    source_val_dataset = NormalDataset(
+        args.source_val_root,
+        args.source_val_source,
+        transform = transforms.Compose([
+            transforms.Resize(val_size),
+            transforms.CenterCrop(crop_size),
+            transforms.ToTensor(),
+            normalize,
+        ]),is_train=False, args=args )
+
 
     train_source_loader = DataLoader(
         train_source_dataset, batch_size=args.batch_size, shuffle=True,
@@ -224,19 +191,24 @@ def main():
         val_dataset, batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers)
 
+    source_val_loader = DataLoader(
+        source_val_dataset, batch_size=args.batch_size, shuffle=False,
+        num_workers=args.workers)
+
+
     lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(student_optimizer, args.lr_steps, args.lr_gamma)
         #logger.info('{}'.format(args))
     if args.evaluate:
         validate(val_loader, student_model, criterion)
         return
 
-    train(train_source_loader, train_target_loader, val_loader,
+    train(train_source_loader, train_target_loader, val_loader, source_val_loader,
            student_model, criterion,
            student_optimizer = student_optimizer,
            lr_scheduler = lr_scheduler,
            start_iter = last_iter+1, tb_logger = tb_logger)
 
-def train(train_source_loader, train_target_loader, val_loader,
+def train(train_source_loader, train_target_loader, val_loader, source_val_loader,
           student_model, criterion, student_optimizer,
            lr_scheduler, start_iter, tb_logger):
 
@@ -258,7 +230,6 @@ def train(train_source_loader, train_target_loader, val_loader,
     # switch to train mode
 
 
-    logger = logging.getLogger('global_logger')
     criterion_bce = nn.BCELoss()
     criterion_uk =  nn.BCEWithLogitsLoss()
     end = time.time()
@@ -276,20 +247,17 @@ def train(train_source_loader, train_target_loader, val_loader,
         data_time.update(time.time() - end)
 
 
-        label_source = Variable(label_source).cuda(async=True)
+        label_source = Variable(label_source).cuda()
         input_source = Variable(input_source).cuda()
 
         # compute output for source data
-        source_output, source_output2 = student_model(input_source)
+        source_output = student_model(input_source)
 
         # measure accuracy and record loss
         softmax_source_output = F.softmax(source_output, dim=1)
 
         #loss for known class
-        if args.double_softmax:
-            loss = criterion(softmax_source_output, label_source)
-        else:
-            loss = criterion(source_output, label_source)
+        loss = criterion(source_output, label_source)
 
         #loss for unknown class
         #integrate loss_cls and loss_entropy
@@ -338,6 +306,12 @@ def train(train_source_loader, train_target_loader, val_loader,
                 tb_logger.add_scalar('loss_val', val_loss, curr_step)
                 tb_logger.add_scalar('acc1_val', prec1, curr_step)
                 tb_logger.add_scalar('acc5_val', prec5, curr_step)
+            source_val_loss, source_prec1, source_prec5  = validate(source_val_loader, student_model, criterion)
+            if not tb_logger is None:
+                tb_logger.add_scalar('source loss_val', source_val_loss, curr_step)
+                tb_logger.add_scalar('source acc1_val', source_prec1, curr_step)
+                tb_logger.add_scalar('source acc5_val', source_prec5, curr_step)
+
 
             # remember best prec@1 and save checkpoint
             is_best = prec1 > best_prec1
@@ -358,17 +332,17 @@ def validate(val_loader, model, criterion):
     top1 = AverageMeter(0)
     top5 = AverageMeter(0)
     # switch to evaluate mode
-    model.train(mode=False)
+    model.eval()
 
-    logger = logging.getLogger('global_logger')
     end = time.time()
     for i, (input, target) in enumerate(val_loader):
-        target = target.cuda(async=True)
+        target = target.cuda()
         input_var = torch.autograd.Variable(input.cuda(), volatile=True)
         target_var = torch.autograd.Variable(target, volatile=True)
 
         # compute output
-        output, output1 = model(input_var)
+        with torch.no_grad():
+            output = model(input_var)
 
         # measure accuracy and record loss
         softmax_output = F.softmax(output, dim=1)

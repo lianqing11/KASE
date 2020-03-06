@@ -2,6 +2,7 @@ import argparse
 import os
 import os.path as osp
 import utils
+import models.batchnorm as batchnorm
 import shutil
 import time
 import yaml
@@ -81,7 +82,7 @@ def main():
     student_model.cuda()
     student_params = list(student_model.parameters())
     crop_size = input_size
-    val_size = 256
+    val_size = 182
 
 
 
@@ -254,22 +255,30 @@ def train(train_source_loader, train_target_loader, val_loader, source_val_loade
         input_target = Variable(input_target).cuda()
 
         # compute output for source data
-        source_output = student_model(input_source)
+        output = student_model(input_source)
 
         # measure accuracy and record loss
-        softmax_source_output = F.softmax(source_output, dim=1)
 
         #loss for known class
-        loss = criterion(source_output, label_source)
+        loss = criterion(output, label_source)
 
         #loss for unknown class
         #integrate loss_cls and loss_entropy
         #compute accuracy
-        prec1, prec5 = accuracy(softmax_source_output.data, label_source, topk=(1, 5))
-        with torch.no_grad():
-            _ = student_model(input_target)
-            del _
+        prec1, prec5 = accuracy(output.data, label_source, topk=(1, 5))
 
+
+        for p in student_model.modules():
+            if isinstance(p, batchnorm._BatchNorm):
+                p.source = False
+        output = student_model(input_target)
+
+        for p in student_model.modules():
+            if isinstance(p, batchnorm._BatchNorm):
+                p.source=True
+
+
+        loss += criterion(output, label_target)
         losses.update(loss.item())
         top1.update(prec1.item())
         top5.update(prec5.item())
@@ -307,7 +316,15 @@ def train(train_source_loader, train_target_loader, val_loader, source_val_loade
 
         if (curr_step+1)%args.val_freq == 0 :
 
+            for p in student_model.modules():
+                if isinstance(p, batchnorm._BatchNorm):
+                    p.source=False
             val_loss, prec1, prec5  = validate(val_loader, student_model, criterion)
+
+            for p in student_model.modules():
+                if isinstance(p, batchnorm._BatchNorm):
+                    p.source=True
+
             if not tb_logger is None:
                 tb_logger.add_scalar('loss_val', val_loss, curr_step)
                 tb_logger.add_scalar('acc1_val', prec1, curr_step)

@@ -1,5 +1,5 @@
 common:
-    exp_name: source_only_exp001
+    exp_name: source_only_exp002
     arch: resnet50
     workers: 4
     batch_size: 128 
@@ -10,7 +10,7 @@ common:
     max_iter: 380000
     warmup_steps: 0
     warmup_lr: 0.2
-    base_lr: 0.00001
+    base_lr: 0.0001
     lr_steps: [300000]
     lr_mults: [0.1]
     use_weight: False
