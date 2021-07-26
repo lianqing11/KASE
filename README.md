@@ -1,6 +1,6 @@
 # Known-class Aware Self-ensemble for Open Set Domain Adaptation
 
-Pytorch implemention of our methdo for open set domain adaptation. Based on this implementation, our result is ranked 2nd in the [VisDA Challenge 2018](http://ai.bu.edu/visda-2018/).
+Pytorch implemention of our method for open set domain adaptation. Based on this implementation, our result is ranked 2nd in the [VisDA Challenge 2018](http://ai.bu.edu/visda-2018/).
 
 ## Enviorment
 The code is developed under the following configuration.
